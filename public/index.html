@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Adserver Explorer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+    header { background: #1a1d27; border-bottom: 1px solid #2d3148; padding: 16px 24px; display: flex; align-items: center; gap: 12px; }
+    header h1 { font-size: 1.2rem; font-weight: 600; }
+    header span { font-size: 0.75rem; background: #2d3148; padding: 3px 8px; border-radius: 4px; color: #818cf8; }
+    main { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 24px; max-width: 1400px; }
+    section { background: #1a1d27; border: 1px solid #2d3148; border-radius: 8px; padding: 20px; }
+    section h2 { font-size: 0.9rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #818cf8; margin-bottom: 16px; }
+    label { display: block; font-size: 0.8rem; color: #94a3b8; margin-bottom: 4px; margin-top: 12px; }
+    label:first-of-type { margin-top: 0; }
+    input, select { width: 100%; background: #0f1117; border: 1px solid #2d3148; border-radius: 6px; padding: 8px 10px; color: #e2e8f0; font-size: 0.85rem; outline: none; }
+    input:focus, select:focus { border-color: #818cf8; }
+    .row { display: flex; gap: 8px; margin-top: 8px; }
+    button { background: #4f46e5; color: white; border: none; border-radius: 6px; padding: 8px 16px; font-size: 0.85rem; cursor: pointer; white-space: nowrap; }
+    button:hover { background: #4338ca; }
+    button.secondary { background: #2d3148; }
+    button.secondary:hover { background: #374163; }
+    pre { background: #0f1117; border: 1px solid #2d3148; border-radius: 6px; padding: 12px; font-size: 0.75rem; overflow: auto; max-height: 280px; color: #a5f3fc; margin-top: 12px; white-space: pre-wrap; word-break: break-all; }
+    .sessions-list { margin-top: 8px; }
+    .session-item { background: #0f1117; border: 1px solid #2d3148; border-radius: 6px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; transition: border-color 0.15s; display: flex; justify-content: space-between; align-items: center; }
+    .session-item:hover { border-color: #818cf8; }
+    .session-id { font-size: 0.8rem; color: #818cf8; font-family: monospace; }
+    .session-meta { font-size: 0.75rem; color: #64748b; }
+    .events-list { margin-top: 8px; }
+    .event-item { background: #0f1117; border-left: 2px solid #4f46e5; padding: 8px 12px; margin-bottom: 6px; border-radius: 0 6px 6px 0; font-size: 0.8rem; }
+    .event-type { color: #a5f3fc; font-weight: 600; }
+    .event-time { color: #64748b; font-size: 0.72rem; }
+    .tag { display: inline-block; background: #1e3a5f; color: #7dd3fc; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; margin-right: 4px; }
+    .url-box { background: #0f1117; border: 1px solid #2d3148; border-radius: 6px; padding: 10px; font-size: 0.75rem; color: #818cf8; font-family: monospace; word-break: break-all; margin-top: 8px; }
+    .empty { color: #64748b; font-size: 0.85rem; text-align: center; padding: 20px; }
+    @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<header>
+  <h1>Test Adserver Explorer</h1>
+  <span>CSAI / SSAI</span>
+</header>
+<main>
+  <!-- VAST / VMAP Generator -->
+  <section>
+    <h2>Generate VAST / VMAP</h2>
+
+    <label>Type</label>
+    <select id="adType">
+      <option value="vast">VAST</option>
+      <option value="vmap">VMAP</option>
+    </select>
+
+    <label>Duration (seconds)</label>
+    <input id="duration" type="number" value="30" min="1">
+
+    <label>Number of Ads</label>
+    <input id="count" type="number" value="1" min="1" max="5">
+
+    <label>Session ID (optional — leave blank to auto-create)</label>
+    <input id="sessionId" type="text" placeholder="e.g. my-test-session">
+
+    <div class="row">
+      <button onclick="generateAd()">Generate</button>
+      <button class="secondary" onclick="clearOutput()">Clear</button>
+    </div>
+
+    <div id="vastUrl" style="display:none">
+      <div style="font-size:0.75rem;color:#94a3b8;margin-top:12px;">URL</div>
+      <div class="url-box" id="urlDisplay"></div>
+    </div>
+
+    <pre id="output">Click Generate to fetch VAST/VMAP XML...</pre>
+  </section>
+
+  <!-- Sessions -->
+  <section>
+    <h2>Sessions <button class="secondary" style="font-size:0.72rem;padding:4px 10px;float:right;margin-top:-2px" onclick="loadSessions()">Refresh</button></h2>
+    <div class="sessions-list" id="sessionsList">
+      <div class="empty">Click Refresh to load sessions</div>
+    </div>
+  </section>
+
+  <!-- Session Detail -->
+  <section>
+    <h2>Session Detail</h2>
+    <label>Session ID</label>
+    <div class="row">
+      <input id="detailSessionId" type="text" placeholder="Paste session ID or click a session above">
+      <button onclick="loadSession()">Load</button>
+    </div>
+    <pre id="sessionDetail" style="max-height:200px">Select a session to view details...</pre>
+
+    <div style="margin-top:12px">
+      <button onclick="loadEvents()">Load Events</button>
+      <button class="secondary" onclick="loadSessionVast()" style="margin-left:8px">View VAST</button>
+    </div>
+
+    <div id="eventsList" class="events-list" style="margin-top:12px"></div>
+  </section>
+
+  <!-- How it works -->
+  <section>
+    <h2>How It Works</h2>
+    <p style="font-size:0.82rem;color:#94a3b8;line-height:1.6;">
+      The <strong style="color:#e2e8f0">Eyevinn Test Adserver</strong> simulates a real ad server for testing SSAI/CSAI pipelines.<br><br>
+      <strong style="color:#a5f3fc">CSAI (Client-Side Ad Insertion)</strong> — the player fetches VAST from the ad server and inserts ads itself.<br><br>
+      <strong style="color:#a5f3fc">SSAI (Server-Side Ad Insertion)</strong> — a proxy stitches ads server-side. Use the VMAP URL as the ad tag.<br><br>
+      Each call to <code style="color:#818cf8">/api/v1/vast</code> or <code style="color:#818cf8">/api/v1/vmap</code> creates a <strong style="color:#e2e8f0">session</strong> that tracks all subsequent events (impressions, quartiles, clicks).<br><br>
+      Use the session explorer to verify your ad tracking implementation is firing events correctly.
+    </p>
+
+    <div style="margin-top:16px;font-size:0.8rem;color:#94a3b8;">
+      <div style="margin-bottom:4px;color:#e2e8f0;font-weight:600;">Common VAST query params:</div>
+      <div><span class="tag">dur</span> ad duration (seconds)</div>
+      <div><span class="tag">count</span> number of ads</div>
+      <div><span class="tag">session</span> custom session ID</div>
+    </div>
+  </section>
+</main>
+
+<script>
+  const base = window.location.origin;
+
+  async function generateAd() {
+    const type = document.getElementById('adType').value;
+    const dur = document.getElementById('duration').value;
+    const count = document.getElementById('count').value;
+    const session = document.getElementById('sessionId').value.trim();
+
+    const params = new URLSearchParams({ dur, count });
+    if (session) params.set('session', session);
+
+    const url = `${base}/api/${type}?${params}`;
+    document.getElementById('urlDisplay').textContent = url;
+    document.getElementById('vastUrl').style.display = 'block';
+    document.getElementById('output').textContent = 'Loading...';
+
+    try {
+      const res = await fetch(url);
+      const text = await res.text();
+      document.getElementById('output').textContent = text;
+    } catch (e) {
+      document.getElementById('output').textContent = 'Error: ' + e.message;
+    }
+
+    loadSessions();
+  }
+
+  function clearOutput() {
+    document.getElementById('output').textContent = 'Click Generate to fetch VAST/VMAP XML...';
+    document.getElementById('vastUrl').style.display = 'none';
+  }
+
+  async function loadSessions() {
+    const el = document.getElementById('sessionsList');
+    el.innerHTML = '<div class="empty">Loading...</div>';
+    try {
+      const res = await fetch(`${base}/api/sessions`);
+      const data = await res.json();
+      const sessions = Array.isArray(data) ? data : (data.sessions || []);
+      if (!sessions.length) {
+        el.innerHTML = '<div class="empty">No sessions yet. Generate a VAST/VMAP to create one.</div>';
+        return;
+      }
+      el.innerHTML = sessions.slice(0, 20).map(s => {
+        const id = s.id || s.sessionId || s;
+        const created = s.created ? new Date(s.created).toLocaleTimeString() : '';
+        return `<div class="session-item" onclick="selectSession('${id}')">
+          <span class="session-id">${id}</span>
+          <span class="session-meta">${created}</span>
+        </div>`;
+      }).join('');
+    } catch (e) {
+      el.innerHTML = `<div class="empty">Error: ${e.message}</div>`;
+    }
+  }
+
+  function selectSession(id) {
+    document.getElementById('detailSessionId').value = id;
+    loadSession();
+  }
+
+  async function loadSession() {
+    const id = document.getElementById('detailSessionId').value.trim();
+    if (!id) return;
+    document.getElementById('sessionDetail').textContent = 'Loading...';
+    document.getElementById('eventsList').innerHTML = '';
+    try {
+      const res = await fetch(`${base}/api/sessions/${id}`);
+      const data = await res.json();
+      document.getElementById('sessionDetail').textContent = JSON.stringify(data, null, 2);
+    } catch (e) {
+      document.getElementById('sessionDetail').textContent = 'Error: ' + e.message;
+    }
+  }
+
+  async function loadEvents() {
+    const id = document.getElementById('detailSessionId').value.trim();
+    if (!id) return;
+    const el = document.getElementById('eventsList');
+    el.innerHTML = '<div class="empty">Loading events...</div>';
+    try {
+      const res = await fetch(`${base}/api/sessions/${id}/events`);
+      const data = await res.json();
+      const events = Array.isArray(data) ? data : (data.events || []);
+      if (!events.length) {
+        el.innerHTML = '<div class="empty">No events tracked yet for this session.</div>';
+        return;
+      }
+      el.innerHTML = events.map(e => {
+        const type = e.event || e.type || JSON.stringify(e);
+        const time = e.timestamp ? new Date(e.timestamp).toLocaleTimeString() : '';
+        return `<div class="event-item">
+          <div class="event-type">${type}</div>
+          <div class="event-time">${time}</div>
+        </div>`;
+      }).join('');
+    } catch (e) {
+      el.innerHTML = `<div class="empty">Error: ${e.message}</div>`;
+    }
+  }
+
+  async function loadSessionVast() {
+    const id = document.getElementById('detailSessionId').value.trim();
+    if (!id) return;
+    document.getElementById('sessionDetail').textContent = 'Loading VAST...';
+    try {
+      const res = await fetch(`${base}/api/sessions/${id}/vast`);
+      const text = await res.text();
+      document.getElementById('sessionDetail').textContent = text;
+    } catch (e) {
+      document.getElementById('sessionDetail').textContent = 'Error: ' + e.message;
+    }
+  }
+</script>
+</body>
+</html>
