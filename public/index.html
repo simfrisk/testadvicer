@@ -3,175 +3,445 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Test Adserver Explorer</title>
+  <title>Ad Server Tester</title>
+  <script src="https://imasdk.googleapis.com/js/sdkloader/ima3.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: system-ui, sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
-    header { background: #1a1d27; border-bottom: 1px solid #2d3148; padding: 16px 24px; display: flex; align-items: center; gap: 12px; }
-    header h1 { font-size: 1.2rem; font-weight: 600; }
-    header span { font-size: 0.75rem; background: #2d3148; padding: 3px 8px; border-radius: 4px; color: #818cf8; }
-    main { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 24px; max-width: 1400px; }
-    section { background: #1a1d27; border: 1px solid #2d3148; border-radius: 8px; padding: 20px; }
-    section h2 { font-size: 0.9rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #818cf8; margin-bottom: 16px; }
-    label { display: block; font-size: 0.8rem; color: #94a3b8; margin-bottom: 4px; margin-top: 12px; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f8f9fc; color: #1e293b; }
+
+    header { background: white; border-bottom: 1px solid #e2e8f0; padding: 18px 32px; }
+    header h1 { font-size: 1.2rem; font-weight: 700; }
+    header p { color: #64748b; font-size: 0.85rem; margin-top: 3px; }
+
+    .page { max-width: 860px; margin: 0 auto; padding: 32px 24px; }
+
+    /* Explainer */
+    .explainer { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 22px 24px; margin-bottom: 28px; }
+    .explainer h2 { font-size: 0.95rem; font-weight: 700; color: #1d4ed8; margin-bottom: 8px; }
+    .explainer p { font-size: 0.88rem; color: #1e40af; line-height: 1.7; }
+
+    /* Demo card */
+    .demo-card { background: white; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; margin-bottom: 28px; }
+    .demo-header { padding: 20px 24px 0; }
+    .demo-header h2 { font-size: 1.05rem; font-weight: 700; }
+    .demo-header p { font-size: 0.85rem; color: #64748b; margin-top: 4px; line-height: 1.5; }
+
+    .demo-body { display: grid; grid-template-columns: 1fr 300px; gap: 0; margin-top: 16px; }
+
+    /* Video player */
+    .player-wrap { position: relative; background: #000; aspect-ratio: 16/9; }
+    #content-video { width: 100%; height: 100%; display: block; }
+    #ad-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+    .play-overlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.55);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      cursor: pointer; z-index: 10;
+    }
+    .play-btn {
+      width: 64px; height: 64px; border-radius: 50%; background: white;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.6rem; margin-bottom: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      transition: transform 0.15s;
+    }
+    .play-overlay:hover .play-btn { transform: scale(1.1); }
+    .play-label { color: white; font-size: 0.9rem; font-weight: 600; }
+    .play-sublabel { color: rgba(255,255,255,0.7); font-size: 0.78rem; margin-top: 4px; }
+
+    /* Live event log */
+    .event-log { border-left: 1px solid #e2e8f0; padding: 16px; background: #f8f9fc; display: flex; flex-direction: column; }
+    .event-log h3 { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 12px; }
+    .event-log-items { flex: 1; overflow-y: auto; max-height: 260px; }
+
+    .event-item {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 8px 0; border-bottom: 1px solid #e2e8f0;
+      animation: fadeIn 0.3s ease;
+    }
+    .event-item:last-child { border-bottom: none; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
+    .event-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+    .dot-impression { background: #3b82f6; }
+    .dot-start { background: #10b981; }
+    .dot-quartile { background: #f59e0b; }
+    .dot-complete { background: #6366f1; }
+    .dot-content { background: #94a3b8; }
+
+    .event-text { font-size: 0.8rem; }
+    .event-name { font-weight: 600; color: #1e293b; }
+    .event-desc { color: #64748b; font-size: 0.75rem; margin-top: 1px; }
+
+    .log-empty { color: #94a3b8; font-size: 0.8rem; text-align: center; padding: 20px 0; }
+
+    /* Phase banner */
+    .phase-banner { display: none; background: #fef3c7; border-top: 1px solid #fde68a; padding: 10px 24px; font-size: 0.85rem; color: #78350f; }
+    .phase-banner strong { color: #92400e; }
+
+    /* Steps */
+    .steps { margin-bottom: 28px; }
+    .step { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; margin-bottom: 16px; }
+    .step-hd { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 16px; }
+    .step-num { background: #4f46e5; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; flex-shrink: 0; }
+    .step-title { font-size: 0.95rem; font-weight: 700; }
+    .step-sub { font-size: 0.82rem; color: #64748b; margin-top: 3px; line-height: 1.5; }
+
+    label { display: block; font-weight: 600; font-size: 0.82rem; margin-bottom: 3px; margin-top: 14px; }
     label:first-of-type { margin-top: 0; }
-    input, select { width: 100%; background: #0f1117; border: 1px solid #2d3148; border-radius: 6px; padding: 8px 10px; color: #e2e8f0; font-size: 0.85rem; outline: none; }
-    input:focus, select:focus { border-color: #818cf8; }
-    .row { display: flex; gap: 8px; margin-top: 8px; }
-    button { background: #4f46e5; color: white; border: none; border-radius: 6px; padding: 8px 16px; font-size: 0.85rem; cursor: pointer; white-space: nowrap; }
-    button:hover { background: #4338ca; }
-    button.secondary { background: #2d3148; }
-    button.secondary:hover { background: #374163; }
-    pre { background: #0f1117; border: 1px solid #2d3148; border-radius: 6px; padding: 12px; font-size: 0.75rem; overflow: auto; max-height: 280px; color: #a5f3fc; margin-top: 12px; white-space: pre-wrap; word-break: break-all; }
-    .sessions-list { margin-top: 8px; }
-    .session-item { background: #0f1117; border: 1px solid #2d3148; border-radius: 6px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; transition: border-color 0.15s; display: flex; justify-content: space-between; align-items: center; }
-    .session-item:hover { border-color: #818cf8; }
-    .session-id { font-size: 0.8rem; color: #818cf8; font-family: monospace; }
-    .session-meta { font-size: 0.75rem; color: #64748b; }
-    .events-list { margin-top: 8px; }
-    .event-item { background: #0f1117; border-left: 2px solid #4f46e5; padding: 8px 12px; margin-bottom: 6px; border-radius: 0 6px 6px 0; font-size: 0.8rem; }
-    .event-type { color: #a5f3fc; font-weight: 600; }
-    .event-time { color: #64748b; font-size: 0.72rem; }
-    .tag { display: inline-block; background: #1e3a5f; color: #7dd3fc; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; margin-right: 4px; }
-    .url-box { background: #0f1117; border: 1px solid #2d3148; border-radius: 6px; padding: 10px; font-size: 0.75rem; color: #818cf8; font-family: monospace; word-break: break-all; margin-top: 8px; }
-    .empty { color: #64748b; font-size: 0.85rem; text-align: center; padding: 20px; }
-    @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+    .hint { font-size: 0.78rem; color: #64748b; margin-bottom: 6px; }
+    select { width: 100%; border: 1px solid #e2e8f0; border-radius: 8px; padding: 9px 12px; font-size: 0.88rem; color: #1e293b; background: white; outline: none; }
+    select:focus { border-color: #4f46e5; }
+
+    .btn { display: inline-flex; align-items: center; gap: 8px; background: #4f46e5; color: white; border: none; border-radius: 8px; padding: 10px 18px; font-size: 0.85rem; font-weight: 600; cursor: pointer; margin-top: 14px; }
+    .btn:hover { background: #4338ca; }
+    .btn-sm { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 12px; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
+    .btn-sm:hover { background: #e2e8f0; }
+
+    .result-box { background: #f8f9fc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-top: 14px; }
+    .result-box pre { font-family: monospace; font-size: 0.75rem; white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow-y: auto; color: #1e293b; }
+    .url-display { font-family: monospace; font-size: 0.75rem; background: #f8f9fc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 9px 12px; word-break: break-all; color: #4f46e5; margin-top: 6px; }
+
+    .session-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; margin-bottom: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: border-color 0.15s; }
+    .session-card:hover, .session-card.active { border-color: #4f46e5; background: #eef2ff; }
+    .session-label { font-size: 0.82rem; font-weight: 600; }
+    .session-meta { font-size: 0.75rem; color: #64748b; margin-top: 2px; }
+    .session-badge { font-size: 0.72rem; background: #e0e7ff; color: #4f46e5; padding: 3px 8px; border-radius: 20px; font-weight: 600; }
+
+    .sessions-event-row { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 0.82rem; }
+    .sessions-event-row:last-child { border-bottom: none; }
+    .s-dot { width: 7px; height: 7px; border-radius: 50%; background: #4f46e5; margin-top: 5px; flex-shrink: 0; }
+    .s-ename { font-weight: 600; }
+    .s-edesc { color: #64748b; font-size: 0.76rem; }
+
+    /* Glossary */
+    .gloss-card { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; }
+    .gloss-hd { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 20px; }
+    .gloss-num { background: #94a3b8; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; flex-shrink: 0; }
+    .gloss-item { margin-bottom: 14px; }
+    .gloss-term { font-weight: 700; font-size: 0.88rem; }
+    .gloss-def { font-size: 0.83rem; color: #475569; margin-top: 2px; line-height: 1.6; }
+
+    .empty { text-align: center; color: #94a3b8; padding: 16px; font-size: 0.82rem; }
+    .hidden { display: none; }
+
+    @media (max-width: 640px) {
+      .demo-body { grid-template-columns: 1fr; }
+      .event-log { border-left: none; border-top: 1px solid #e2e8f0; }
+    }
   </style>
 </head>
 <body>
+
 <header>
-  <h1>Test Adserver Explorer</h1>
-  <span>CSAI / SSAI</span>
+  <h1>Ad Server Tester</h1>
+  <p>See exactly how video ads work — watch it happen live, then explore what's going on behind the scenes.</p>
 </header>
-<main>
-  <!-- VAST / VMAP Generator -->
-  <section>
-    <h2>Generate VAST / VMAP</h2>
 
-    <label>Type</label>
-    <select id="adType">
-      <option value="vast">VAST</option>
-      <option value="vmap">VMAP</option>
-    </select>
+<div class="page">
 
-    <label>Duration (seconds)</label>
-    <input id="duration" type="number" value="30" min="1">
+  <div class="explainer">
+    <h2>What is this for?</h2>
+    <p>When a streaming platform wants to show ads in their videos, they need to test that the whole system works before going live. This tool connects to a <strong>test ad server</strong> — a safe, free, fake version of the real thing — so you can see every step of the ad process without touching real money or real advertisers.</p>
+  </div>
 
-    <label>Number of Ads</label>
-    <input id="count" type="number" value="1" min="1" max="5">
-
-    <label>Session ID (optional — leave blank to auto-create)</label>
-    <input id="sessionId" type="text" placeholder="e.g. my-test-session">
-
-    <div class="row">
-      <button onclick="generateAd()">Generate</button>
-      <button class="secondary" onclick="clearOutput()">Clear</button>
+  <!-- ===== LIVE DEMO ===== -->
+  <div class="demo-card">
+    <div class="demo-header">
+      <h2>Watch it happen live</h2>
+      <p>Press play. A short ad will play first — just like on YouTube. Then the real video starts. Watch the live event log on the right to see what the ad server is being told in real time.</p>
     </div>
 
-    <div id="vastUrl" style="display:none">
-      <div style="font-size:0.75rem;color:#94a3b8;margin-top:12px;">URL</div>
-      <div class="url-box" id="urlDisplay"></div>
+    <div class="demo-body">
+      <div class="player-wrap">
+        <video id="content-video"
+          src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+          playsinline>
+        </video>
+        <div id="ad-container"></div>
+        <div class="play-overlay" id="play-overlay" onclick="startDemo()">
+          <div class="play-btn">▶</div>
+          <div class="play-label">Click to watch</div>
+          <div class="play-sublabel">A 15-second ad will play first</div>
+        </div>
+      </div>
+
+      <div class="event-log">
+        <h3>Live Event Log</h3>
+        <div class="event-log-items" id="live-log">
+          <div class="log-empty">Events will appear here once you press play.</div>
+        </div>
+      </div>
     </div>
 
-    <pre id="output">Click Generate to fetch VAST/VMAP XML...</pre>
-  </section>
+    <div class="phase-banner" id="phase-banner"></div>
+  </div>
 
-  <!-- Sessions -->
-  <section>
-    <h2>Sessions <button class="secondary" style="font-size:0.72rem;padding:4px 10px;float:right;margin-top:-2px" onclick="loadSessions()">Refresh</button></h2>
-    <div class="sessions-list" id="sessionsList">
-      <div class="empty">Click Refresh to load sessions</div>
+  <!-- ===== STEPS ===== -->
+  <div class="steps">
+
+    <!-- Step 1 -->
+    <div class="step">
+      <div class="step-hd">
+        <div class="step-num">1</div>
+        <div>
+          <div class="step-title">See what the ad server actually sends back</div>
+          <div class="step-sub">The player asks the ad server "what ad should I show?" — this is what the ad server replies with. It looks complicated but it's just a set of instructions: what video to play, how long it is, and what to report back.</div>
+        </div>
+      </div>
+
+      <label>Ad length</label>
+      <select id="duration">
+        <option value="15">15 seconds</option>
+        <option value="30" selected>30 seconds</option>
+        <option value="60">60 seconds</option>
+      </select>
+
+      <label>Number of ads in the break</label>
+      <select id="count">
+        <option value="1" selected>1 ad</option>
+        <option value="2">2 ads back to back</option>
+        <option value="3">3 ads back to back</option>
+      </select>
+
+      <button class="btn" onclick="fetchVast()">Fetch the ad instructions →</button>
+
+      <div id="vast-result" class="hidden">
+        <div style="font-size:0.78rem;font-weight:600;color:#94a3b8;margin-top:14px;">Request sent to:</div>
+        <div class="url-display" id="vast-url"></div>
+        <div style="font-size:0.78rem;font-weight:600;color:#94a3b8;margin-top:12px;">Ad server replied with:</div>
+        <div class="result-box"><pre id="vast-xml"></pre></div>
+      </div>
     </div>
-  </section>
 
-  <!-- Session Detail -->
-  <section>
-    <h2>Session Detail</h2>
-    <label>Session ID</label>
-    <div class="row">
-      <input id="detailSessionId" type="text" placeholder="Paste session ID or click a session above">
-      <button onclick="loadSession()">Load</button>
+    <!-- Step 2 -->
+    <div class="step">
+      <div class="step-hd">
+        <div class="step-num">2</div>
+        <div>
+          <div class="step-title">Browse the sessions — the ad server's memory</div>
+          <div class="step-sub">Every time a player asks for an ad, the ad server creates a <strong>session</strong> — a record of that request. You can see all of them here. When the video demo above plays, a session is created automatically.</div>
+        </div>
+      </div>
+
+      <button class="btn-sm" onclick="loadSessions()">Refresh</button>
+      <div id="sessions-list" style="margin-top:12px">
+        <div class="empty">Press play on the video above or click "Fetch the ad instructions" in Step 1 — then refresh here.</div>
+      </div>
     </div>
-    <pre id="sessionDetail" style="max-height:200px">Select a session to view details...</pre>
 
-    <div style="margin-top:12px">
-      <button onclick="loadEvents()">Load Events</button>
-      <button class="secondary" onclick="loadSessionVast()" style="margin-left:8px">View VAST</button>
+    <!-- Step 3 -->
+    <div class="step">
+      <div class="step-hd">
+        <div class="step-num">3</div>
+        <div>
+          <div class="step-title">Check what got reported back for a session</div>
+          <div class="step-sub">In a real app, the video player reports back as the ad plays — "started", "halfway", "finished". You can check those reports here for any session. Select one above to load its events.</div>
+        </div>
+      </div>
+
+      <div id="session-events-placeholder" class="empty">Select a session in Step 2 to see its events.</div>
+      <div id="session-events-list" class="hidden"></div>
     </div>
 
-    <div id="eventsList" class="events-list" style="margin-top:12px"></div>
-  </section>
+  </div>
 
-  <!-- How it works -->
-  <section>
-    <h2>How It Works</h2>
-    <p style="font-size:0.82rem;color:#94a3b8;line-height:1.6;">
-      The <strong style="color:#e2e8f0">Eyevinn Test Adserver</strong> simulates a real ad server for testing SSAI/CSAI pipelines.<br><br>
-      <strong style="color:#a5f3fc">CSAI (Client-Side Ad Insertion)</strong> — the player fetches VAST from the ad server and inserts ads itself.<br><br>
-      <strong style="color:#a5f3fc">SSAI (Server-Side Ad Insertion)</strong> — a proxy stitches ads server-side. Use the VMAP URL as the ad tag.<br><br>
-      Each call to <code style="color:#818cf8">/api/v1/vast</code> or <code style="color:#818cf8">/api/v1/vmap</code> creates a <strong style="color:#e2e8f0">session</strong> that tracks all subsequent events (impressions, quartiles, clicks).<br><br>
-      Use the session explorer to verify your ad tracking implementation is firing events correctly.
-    </p>
-
-    <div style="margin-top:16px;font-size:0.8rem;color:#94a3b8;">
-      <div style="margin-bottom:4px;color:#e2e8f0;font-weight:600;">Common VAST query params:</div>
-      <div><span class="tag">dur</span> ad duration (seconds)</div>
-      <div><span class="tag">count</span> number of ads</div>
-      <div><span class="tag">session</span> custom session ID</div>
+  <!-- Glossary -->
+  <div class="gloss-card">
+    <div class="gloss-hd">
+      <div class="gloss-num">?</div>
+      <div>
+        <div class="step-title">Plain-English Glossary</div>
+        <div class="step-sub">The terms you'll hear on this project.</div>
+      </div>
     </div>
-  </section>
-</main>
+    <div class="gloss-item">
+      <div class="gloss-term">Ad Server</div>
+      <div class="gloss-def">The computer that decides which ad to show. The video player asks it, it replies with instructions.</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">VAST</div>
+      <div class="gloss-def">The format of the ad server's reply — a file that says "play this video, it's 30 seconds, report back when it starts and ends." Think of it as a recipe card for playing one ad.</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">VMAP</div>
+      <div class="gloss-def">Like VAST but for a whole video — it schedules ads at the start, middle, and end. Think of it as a full TV commercial break schedule.</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">Session</div>
+      <div class="gloss-def">A record the ad server keeps every time someone requests an ad. It logs what was asked for and all the events that came back.</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">Tracking Events</div>
+      <div class="gloss-def">Messages the player sends back to confirm the ad was watched: "started", "25% done", "50% done", "finished". This is how advertisers prove their ad was actually seen — and how publishers get paid.</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">CSAI vs SSAI</div>
+      <div class="gloss-def"><strong>CSAI (Client-Side)</strong> — the player in your browser fetches and plays the ad itself. Simple but can be blocked by ad blockers. <strong>SSAI (Server-Side)</strong> — a server stitches the ad into the video before it reaches you, so the player sees one seamless stream and can't tell where the ad is.</div>
+    </div>
+  </div>
+
+</div>
 
 <script>
   const base = window.location.origin;
+  let adsManager, adDisplayContainer, adsLoader;
+  let selectedSession = null;
+  let demoStarted = false;
+  let logCount = 0;
 
-  async function generateAd() {
-    const type = document.getElementById('adType').value;
+  const eventInfo = {
+    loaded:          { label: 'Ad loaded',        desc: 'The ad is ready to play',                  cls: 'dot-impression' },
+    start:           { label: 'Ad started',        desc: 'The ad began playing',                     cls: 'dot-start' },
+    impression:      { label: 'Impression fired',  desc: 'The ad server was told the ad is playing', cls: 'dot-impression' },
+    firstQuartile:   { label: '25% watched',       desc: 'Viewer watched the first quarter',         cls: 'dot-quartile' },
+    midpoint:        { label: '50% watched',       desc: 'Viewer is halfway through',                cls: 'dot-quartile' },
+    thirdQuartile:   { label: '75% watched',       desc: 'Almost done — three quarters watched',     cls: 'dot-quartile' },
+    complete:        { label: 'Ad complete',       desc: 'Viewer watched the full ad',               cls: 'dot-complete' },
+    allAdsCompleted: { label: 'Ad break done',     desc: 'Content video is resuming',                cls: 'dot-content' },
+    skip:            { label: 'Ad skipped',        desc: 'Viewer pressed skip',                      cls: 'dot-quartile' },
+    adError:         { label: 'Ad error',          desc: 'Something went wrong with the ad',         cls: 'dot-quartile' },
+  };
+
+  function addLogEvent(type) {
+    const log = document.getElementById('live-log');
+    const info = eventInfo[type] || { label: type, desc: '', cls: 'dot-impression' };
+    logCount++;
+
+    if (logCount === 1) log.innerHTML = '';
+
+    const el = document.createElement('div');
+    el.className = 'event-item';
+    el.innerHTML = `
+      <div class="event-dot ${info.cls}"></div>
+      <div class="event-text">
+        <div class="event-name">${info.label}</div>
+        ${info.desc ? `<div class="event-desc">${info.desc}</div>` : ''}
+      </div>`;
+    log.appendChild(el);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function setBanner(msg) {
+    const b = document.getElementById('phase-banner');
+    if (msg) { b.innerHTML = msg; b.style.display = 'block'; }
+    else { b.style.display = 'none'; }
+  }
+
+  function startDemo() {
+    if (demoStarted) return;
+    demoStarted = true;
+
+    document.getElementById('play-overlay').style.display = 'none';
+
+    const video = document.getElementById('content-video');
+    const adContainerDiv = document.getElementById('ad-container');
+
+    adDisplayContainer = new google.ima.AdDisplayContainer(adContainerDiv, video);
+    adsLoader = new google.ima.AdsLoader(adDisplayContainer);
+
+    adsLoader.addEventListener(google.ima.AdsManagerLoadedEvent.Type.ADS_MANAGER_LOADED, onAdsManagerLoaded, false);
+    adsLoader.addEventListener(google.ima.AdErrorEvent.Type.AD_ERROR, onAdError, false);
+
+    adDisplayContainer.initialize();
+
+    const req = new google.ima.AdsRequest();
+    req.adTagUrl = 'https://simonsteam-testadserver.eyevinn-test-adserver.auto.prod.osaas.io/api/v1/vast?dur=15&count=1';
+    req.linearAdSlotWidth = video.clientWidth;
+    req.linearAdSlotHeight = video.clientHeight;
+
+    setBanner('<strong>Requesting ad…</strong> The player is asking the ad server what to show.');
+    addLogEvent('loaded');
+    adsLoader.requestAds(req);
+  }
+
+  function onAdsManagerLoaded(e) {
+    const video = document.getElementById('content-video');
+    adsManager = e.getAdsManager(video);
+
+    const events = [
+      google.ima.AdEvent.Type.STARTED,
+      google.ima.AdEvent.Type.IMPRESSION,
+      google.ima.AdEvent.Type.FIRST_QUARTILE,
+      google.ima.AdEvent.Type.MIDPOINT,
+      google.ima.AdEvent.Type.THIRD_QUARTILE,
+      google.ima.AdEvent.Type.COMPLETE,
+      google.ima.AdEvent.Type.ALL_ADS_COMPLETED,
+      google.ima.AdEvent.Type.SKIPPED,
+    ];
+    events.forEach(t => adsManager.addEventListener(t, evt => {
+      addLogEvent(evt.type);
+      if (evt.type === google.ima.AdEvent.Type.STARTED) {
+        setBanner('<strong>Ad is playing.</strong> Watch the event log — events are being reported to the ad server as you watch.');
+      }
+      if (evt.type === google.ima.AdEvent.Type.ALL_ADS_COMPLETED) {
+        setBanner('<strong>Ad break finished.</strong> The content video is now playing. The ad server has a full record of what happened.');
+        loadSessions();
+      }
+    }, false));
+
+    adsManager.addEventListener(google.ima.AdErrorEvent.Type.AD_ERROR, onAdError, false);
+
+    try {
+      adsManager.init(video.clientWidth, video.clientHeight, google.ima.ViewMode.NORMAL);
+      adsManager.start();
+    } catch (err) {
+      video.play();
+    }
+  }
+
+  function onAdError(e) {
+    console.warn('IMA error:', e.getError().toString());
+    addLogEvent('adError');
+    setBanner('<strong>Ad error.</strong> The ad could not be loaded — playing content directly. This sometimes happens due to browser permissions.');
+    const video = document.getElementById('content-video');
+    if (adsManager) adsManager.destroy();
+    video.play();
+  }
+
+  // ---- Step 1 ----
+  async function fetchVast() {
     const dur = document.getElementById('duration').value;
     const count = document.getElementById('count').value;
-    const session = document.getElementById('sessionId').value.trim();
-
     const params = new URLSearchParams({ dur, count });
-    if (session) params.set('session', session);
+    const url = `${base}/api/vast?${params}`;
 
-    const url = `${base}/api/${type}?${params}`;
-    document.getElementById('urlDisplay').textContent = url;
-    document.getElementById('vastUrl').style.display = 'block';
-    document.getElementById('output').textContent = 'Loading...';
+    document.getElementById('vast-url').textContent = url;
+    document.getElementById('vast-xml').textContent = 'Asking the ad server…';
+    document.getElementById('vast-result').classList.remove('hidden');
 
     try {
       const res = await fetch(url);
-      const text = await res.text();
-      document.getElementById('output').textContent = text;
+      document.getElementById('vast-xml').textContent = await res.text();
+      loadSessions();
     } catch (e) {
-      document.getElementById('output').textContent = 'Error: ' + e.message;
+      document.getElementById('vast-xml').textContent = 'Error: ' + e.message;
     }
-
-    loadSessions();
   }
 
-  function clearOutput() {
-    document.getElementById('output').textContent = 'Click Generate to fetch VAST/VMAP XML...';
-    document.getElementById('vastUrl').style.display = 'none';
-  }
-
+  // ---- Step 2 ----
   async function loadSessions() {
-    const el = document.getElementById('sessionsList');
-    el.innerHTML = '<div class="empty">Loading...</div>';
+    const el = document.getElementById('sessions-list');
+    el.innerHTML = '<div class="empty">Loading…</div>';
     try {
       const res = await fetch(`${base}/api/sessions`);
       const data = await res.json();
       const sessions = Array.isArray(data) ? data : (data.sessions || []);
       if (!sessions.length) {
-        el.innerHTML = '<div class="empty">No sessions yet. Generate a VAST/VMAP to create one.</div>';
+        el.innerHTML = '<div class="empty">No sessions yet.</div>';
         return;
       }
-      el.innerHTML = sessions.slice(0, 20).map(s => {
+      el.innerHTML = sessions.slice(0, 15).map((s, i) => {
         const id = s.id || s.sessionId || s;
         const created = s.created ? new Date(s.created).toLocaleTimeString() : '';
-        return `<div class="session-item" onclick="selectSession('${id}')">
-          <span class="session-id">${id}</span>
-          <span class="session-meta">${created}</span>
+        const active = id === selectedSession ? 'active' : '';
+        return `<div class="session-card ${active}" onclick="selectSession('${id}')">
+          <div>
+            <div class="session-label">Session ${sessions.length - i}</div>
+            <div class="session-meta">${id} · ${created}</div>
+          </div>
+          <div class="session-badge">View events →</div>
         </div>`;
       }).join('');
     } catch (e) {
@@ -179,61 +449,51 @@
     }
   }
 
-  function selectSession(id) {
-    document.getElementById('detailSessionId').value = id;
-    loadSession();
-  }
+  // ---- Step 3 ----
+  const eventDescs = {
+    impression: 'The ad started playing',
+    start: 'The ad started playing',
+    firstQuartile: 'Viewer watched 25%',
+    midpoint: 'Viewer watched 50%',
+    thirdQuartile: 'Viewer watched 75%',
+    complete: 'Viewer watched the full ad',
+    click: 'Viewer clicked on the ad',
+    skip: 'Viewer skipped the ad',
+  };
 
-  async function loadSession() {
-    const id = document.getElementById('detailSessionId').value.trim();
-    if (!id) return;
-    document.getElementById('sessionDetail').textContent = 'Loading...';
-    document.getElementById('eventsList').innerHTML = '';
-    try {
-      const res = await fetch(`${base}/api/sessions/${id}`);
-      const data = await res.json();
-      document.getElementById('sessionDetail').textContent = JSON.stringify(data, null, 2);
-    } catch (e) {
-      document.getElementById('sessionDetail').textContent = 'Error: ' + e.message;
-    }
-  }
+  async function selectSession(id) {
+    selectedSession = id;
+    loadSessions();
 
-  async function loadEvents() {
-    const id = document.getElementById('detailSessionId').value.trim();
-    if (!id) return;
-    const el = document.getElementById('eventsList');
-    el.innerHTML = '<div class="empty">Loading events...</div>';
+    const listEl = document.getElementById('session-events-list');
+    const placeholderEl = document.getElementById('session-events-placeholder');
+    listEl.innerHTML = '<div class="empty">Loading…</div>';
+    listEl.classList.remove('hidden');
+    placeholderEl.classList.add('hidden');
+
     try {
       const res = await fetch(`${base}/api/sessions/${id}/events`);
       const data = await res.json();
       const events = Array.isArray(data) ? data : (data.events || []);
+
       if (!events.length) {
-        el.innerHTML = '<div class="empty">No events tracked yet for this session.</div>';
+        listEl.innerHTML = '<div class="empty">No events yet for this session.<br>Events appear here as the ad plays in a real player.</div>';
         return;
       }
-      el.innerHTML = events.map(e => {
+      listEl.innerHTML = events.map(e => {
         const type = e.event || e.type || JSON.stringify(e);
+        const desc = eventDescs[type] || '';
         const time = e.timestamp ? new Date(e.timestamp).toLocaleTimeString() : '';
-        return `<div class="event-item">
-          <div class="event-type">${type}</div>
-          <div class="event-time">${time}</div>
+        return `<div class="sessions-event-row">
+          <div class="s-dot"></div>
+          <div>
+            <div class="s-ename">${type} <span style="font-weight:400;color:#94a3b8;font-size:0.74rem">${time}</span></div>
+            ${desc ? `<div class="s-edesc">${desc}</div>` : ''}
+          </div>
         </div>`;
       }).join('');
     } catch (e) {
-      el.innerHTML = `<div class="empty">Error: ${e.message}</div>`;
-    }
-  }
-
-  async function loadSessionVast() {
-    const id = document.getElementById('detailSessionId').value.trim();
-    if (!id) return;
-    document.getElementById('sessionDetail').textContent = 'Loading VAST...';
-    try {
-      const res = await fetch(`${base}/api/sessions/${id}/vast`);
-      const text = await res.text();
-      document.getElementById('sessionDetail').textContent = text;
-    } catch (e) {
-      document.getElementById('sessionDetail').textContent = 'Error: ' + e.message;
+      listEl.innerHTML = `<div class="empty">Error: ${e.message}</div>`;
     }
   }
 </script>
